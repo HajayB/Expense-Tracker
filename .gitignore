@@ -1,3 +1,4 @@
 node_modules
 .env
 trans.js
+public/css/tailwind.output.css

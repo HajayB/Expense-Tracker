@@ -1,160 +1,183 @@
-
 document.addEventListener("DOMContentLoaded", async () => {
-  // --- 🔐 Retrieve JWT token from localStorage or sessionStorage
-  const token =
-    localStorage.getItem("token") || sessionStorage.getItem("token");
+  const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+  if (!token) { window.location.href = "/api/users/signin"; return; }
 
-  if (!token) {
-    window.location.href = "/api/users/signin";
-    return;
-  }
+  const headers    = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
+  const welcomeText = document.getElementById("welcome_text");
+  const cards       = document.querySelectorAll(".card p");
 
-  const headers = {
-    "Content-Type": "application/json",
-    Authorization: `Bearer ${token}`,
-  };
+  // ---- Chart instances (kept for destroy-on-reload) ---------
+  let barChart = null, doughnutChart = null, lineChart = null;
 
-    const welcomeText = document.getElementById("welcome_text");
-    const cards = document.querySelectorAll(".card p");
+  // ---- Date range inputs ------------------------------------
+  const startInput   = document.getElementById("summaryStart");
+  const endInput     = document.getElementById("summaryEnd");
+  const clearDateBtn = document.getElementById("clearDateRange");
+
+  startInput.addEventListener("change",  () => loadSummary());
+  endInput.addEventListener("change",    () => loadSummary());
+  clearDateBtn.addEventListener("click", () => {
+    startInput.value = "";
+    endInput.value   = "";
+    loadSummary();
+  });
+
+  // ---- Load & render ----------------------------------------
+  async function loadSummary() {
+    const params = new URLSearchParams();
+    if (startInput.value) params.set("startDate", startInput.value);
+    if (endInput.value)   params.set("endDate",   endInput.value);
 
     try {
-    // --- 1️⃣ Fetch user profile
-    const profileRes = await fetch("/api/users/profile", { headers });
-    if (!profileRes.ok) throw new Error("Failed to fetch profile");
-    const profile = await profileRes.json();
+      const [profileRes, summaryRes] = await Promise.all([
+        fetch("/api/users/profile", { headers }),
+        fetch(`/api/transactions/summary?${params}`, { headers }),
+      ]);
 
-    welcomeText.textContent = `Welcome, ${profile.name}`;
-    
-    // --- 2️⃣ Fetch summary
-    const summaryRes = await fetch("/api/transactions/summary", { headers });
-    if (!summaryRes.ok) throw new Error("Failed to fetch summary");
-    const summary = await summaryRes.json();
+      if (!profileRes.ok || !summaryRes.ok) throw new Error("Failed to load data");
 
-    //FOR MAIN CHARTS
+      const profile = await profileRes.json();
+      const summary = await summaryRes.json();
 
+      welcomeText.textContent = `Welcome, ${profile.name}`;
 
-    async function loadChart() {
-        function getStoredUser() {
-  const user =
-    JSON.parse(localStorage.getItem("user")) ||
-    JSON.parse(sessionStorage.getItem("user"));
-  return user;
-}
-
-const user = getStoredUser();
-const userId = user?.id; // undefined if not found
-
-console.log("User ID:", userId);
-
-  const res = await fetch(`/api/transactions/summary/`, { headers }); // include headers ${userId}
-  const data = await res.json();
-
-  const categories = Object.keys(data.expensesByCategory);
-  const values = Object.values(data.expensesByCategory);
-
-  // --- Pie chart (Expenses by category)
-  const pieCtx = document.getElementById('expenseChart').getContext('2d');
-  new Chart(pieCtx, {
-    type: 'pie',
-    data: {
-      labels: categories,
-      datasets: [{
-        label: 'Expenses by Category',
-        data: values,
-        backgroundColor: [
-          'rgba(255, 99, 132, 0.6)',
-          'rgba(54, 162, 235, 0.6)',
-          'rgba(255, 206, 86, 0.6)',
-          'rgba(75, 192, 192, 0.6)',
-          'rgba(153, 102, 255, 0.6)'
-        ],
-        borderColor: '#fff',
-        borderWidth: 2
-      }]
-    },
-    options: {
-      responsive: true,
-      plugins: {
-        title: {
-          display: true,
-          text: 'Expenses by Category'
-        }
+      if (cards.length >= 3) {
+        cards[0].textContent = fmt(summary.balance);
+        cards[1].textContent = fmt(summary.income);
+        cards[2].textContent = fmt(summary.expenses);
       }
-    }
-  });
 
-  // --- Bar chart (Income vs Expenses vs Balance)
-  const barCtx = document.getElementById('incomeExpenseChart').getContext('2d');
-  new Chart(barCtx, {
-    type: 'bar',
-    data: {
-      labels: ['Income', 'Expenses', 'Balance'],
-      datasets: [{
-        data: [data.income, data.expenses, data.balance],
-        backgroundColor: ['#4caf50', '#f44336', '#2196f3']
-      }]
-    },
-    options: {
-      responsive: true,
-      plugins: {
-        title: {
-          display: true,
-          text: 'Income vs Expenses vs Balance'
-        },
-        tooltip: {
-          enabled: false
-        },
-        legend: { display: false },
+      renderCharts(summary);
+    } catch (error) {
+      console.error("Summary error:", error);
+      welcomeText.textContent = "Failed to load data.";
+      showToast("Failed to load summary data.", "error");
+    }
+  }
+
+  // ---- Render all three charts ------------------------------
+  function renderCharts(summary) {
+    // Destroy existing instances before redrawing
+    if (barChart)      { barChart.destroy();      barChart      = null; }
+    if (doughnutChart) { doughnutChart.destroy(); doughnutChart = null; }
+    if (lineChart)     { lineChart.destroy();     lineChart     = null; }
+
+    // ---- Bar chart: income vs expenses vs balance -----------
+    const barCtx = document.getElementById("incomeExpenseChart").getContext("2d");
+    barChart = new Chart(barCtx, {
+      type: "bar",
+      data: {
+        labels: ["Income", "Expenses", "Balance"],
+        datasets: [{
+          data: [summary.income, summary.expenses, summary.balance],
+          backgroundColor: ["rgba(34,197,94,0.8)", "rgba(239,68,68,0.8)", "rgba(59,130,246,0.8)"],
+          borderRadius: 8,
+          borderSkipped: false,
+        }],
       },
-      scales: {
-        y: { beginAtZero: true }
-      }
-    }
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { display: false },
+          title: { display: true, text: "Income vs Expenses vs Balance", font: { family: "Poppins", size: 13 } },
+          tooltip: { callbacks: { label: (ctx) => ` ${fmt(ctx.raw)}` } },
+        },
+        scales: {
+          y: { beginAtZero: true, ticks: { callback: (v) => fmt(v) } },
+        },
+        animation: { duration: 800, easing: "easeOutQuart" },
+      },
+    });
+
+    // ---- Doughnut chart: expenses by category ---------------
+    const categories = Object.keys(summary.expensesByCategory);
+    const values     = Object.values(summary.expensesByCategory);
+    const pieCtx     = document.getElementById("expenseChart").getContext("2d");
+
+    doughnutChart = new Chart(pieCtx, {
+      type: "doughnut",
+      data: {
+        labels: categories.length ? categories : ["No expenses"],
+        datasets: [{
+          data: values.length ? values : [1],
+          backgroundColor: [
+            "rgba(239,68,68,0.75)",   "rgba(59,130,246,0.75)",
+            "rgba(234,179,8,0.75)",   "rgba(34,197,94,0.75)",
+            "rgba(168,85,247,0.75)",  "rgba(249,115,22,0.75)",
+          ],
+          borderColor: "transparent",
+          borderWidth: 2,
+        }],
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { position: "bottom", labels: { padding: 16, font: { family: "Poppins", size: 12 } } },
+          title: { display: true, text: "Expenses by Category", font: { family: "Poppins", size: 13 } },
+          tooltip: { callbacks: { label: (ctx) => ` ${ctx.label}: ${fmt(ctx.raw)}` } },
+        },
+        animation: { animateScale: true, animateRotate: true },
+      },
+    });
+
+    // ---- Line chart: 6-month trend (always all-time) --------
+    const monthly  = summary.monthly || [];
+    const lineCtx  = document.getElementById("monthlyChart").getContext("2d");
+
+    lineChart = new Chart(lineCtx, {
+      type: "line",
+      data: {
+        labels: monthly.map((m) => m.label),
+        datasets: [
+          {
+            label: "Income",
+            data: monthly.map((m) => m.income),
+            borderColor: "rgba(34,197,94,0.9)",
+            backgroundColor: "rgba(34,197,94,0.1)",
+            tension: 0.4,
+            fill: true,
+            pointRadius: 4,
+            pointHoverRadius: 6,
+          },
+          {
+            label: "Expenses",
+            data: monthly.map((m) => m.expenses),
+            borderColor: "rgba(239,68,68,0.9)",
+            backgroundColor: "rgba(239,68,68,0.1)",
+            tension: 0.4,
+            fill: true,
+            pointRadius: 4,
+            pointHoverRadius: 6,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          title: { display: true, text: "6-Month Income & Expense Trend", font: { family: "Poppins", size: 13 } },
+          legend: { position: "bottom", labels: { font: { family: "Poppins", size: 12 } } },
+          tooltip: { callbacks: { label: (ctx) => ` ${ctx.dataset.label}: ${fmt(ctx.raw)}` } },
+        },
+        scales: {
+          y: { beginAtZero: true, ticks: { callback: (v) => fmt(v) } },
+        },
+        animation: { duration: 800, easing: "easeOutQuart" },
+      },
+    });
+  }
+
+  // ---- Sidebar navigation ----------------------------------
+  document.getElementById("dashboard")?.addEventListener("click",     () => window.location.href = "/api/users/dashboard");
+  document.getElementById("transationBtn")?.addEventListener("click", () => window.location.href = "/api/users/transactions");
+  document.getElementById("categoriesBtn")?.addEventListener("click", () => window.location.href = "/api/users/categories");
+  document.getElementById("summaryBtn")?.addEventListener("click",    () => window.location.href = "/api/users/summary");
+
+  // ---- Logout ----------------------------------------------
+  document.getElementById("logoutBtn")?.addEventListener("click", () => {
+    localStorage.removeItem("token");
+    sessionStorage.removeItem("token");
+    window.location.href = "/api/users/signin";
   });
-}
 
-loadChart();
-
-
-    //FOR THE CARDS 
-    cards[0].textContent = `₦${summary.balance.toLocaleString()}`;
-    cards[1].textContent = `₦${summary.income.toLocaleString()}`;
-    cards[2].textContent = `₦${summary.expenses.toLocaleString()}`;
-    }
-    catch(error){
-        console.error("Summary error:", error);
-        welcomeText.textContent = "Failed to load data.";
-        console.error(error);
-    }
-
-
-
-
-// SIDEBAR FUNCTIONALITY 
-
-const dashboard = document.getElementById("dashboard");
-dashboard.addEventListener("click", ()=>{
-  window.location.href="/api/users/dashboard";
-})
-
-const transationBtn = document.getElementById("transationBtn");
-transationBtn.addEventListener("click", ()=>{
-  window.location.href="/api/users/transactions";
-})
-
-const summaryBtn = document.getElementById("summaryBtn");
-summaryBtn.addEventListener("click", ()=>{
-  window.location.href="/api/users/summary";
-})
-
-  // --- 🚪 Logout functionality
-const logoutBtn = document.getElementById("logoutBtn");
-logoutBtn.addEventListener("click", () => {
-localStorage.removeItem("token");
-sessionStorage.removeItem("token");
-window.location.href = "/api/users/signin";
+  await loadSummary();
 });
-
-
-
-});    

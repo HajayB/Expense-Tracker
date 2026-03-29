@@ -1,280 +1,354 @@
-// Wait for the entire DOM to load before running anything
 document.addEventListener("DOMContentLoaded", async () => {
 
-  // === 🔐 AUTH CHECK ===========================================
-  // Try to get the JWT token from either localStorage or sessionStorage
+  // ---- Auth check -------------------------------------------
   const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+  if (!token) { window.location.href = "/api/users/signin"; return; }
 
-  // If there’s no token, redirect user back to signin
-  if (!token) {
-    window.location.href = "/api/users/signin";
-    return;
-  }
+  const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
 
-  // Common headers for all API requests
-  const headers = {
-    "Content-Type": "application/json",
-    Authorization: `Bearer ${token}`,
-  };
-
-  // === 🌟 UNIVERSAL ELEMENT REFERENCES ==========================
-  const form = document.querySelector("form");
-  const amountInput = form.querySelector('input[name="amount"]');
-  const typeInput = form.querySelector('select[name="type"]');
-  const categoryInput = form.querySelector('input[name="category"]');
-  const descriptionInput = form.querySelector('textarea[name="description"]');
-  const submitBtn = form.querySelector('button[type="submit"]');
-  const errorBox = document.querySelector(".error-message");
-  const successBox = document.querySelector(".success-message");
+  // ---- Element refs -----------------------------------------
+  const form              = document.getElementById("transactionForm");
+  const amountInput       = form.querySelector('input[name="amount"]');
+  const typeInput         = form.querySelector('select[name="type"]');
+  const categorySelect    = form.querySelector('select[name="category"]');
+  const descriptionInput  = form.querySelector('textarea[name="description"]');
+  const submitBtn         = form.querySelector('button[type="submit"]');
   const transactionsTable = document.querySelector(".transactions tbody");
-  const welcomeText = document.getElementById("welcome_text");
+  const welcomeText       = document.getElementById("welcome_text");
 
-  // === 🌍 UNIVERSAL HELPERS =====================================
-  function showError(message) {
-    if (errorBox) {
-      errorBox.textContent = message;
-      errorBox.style.display = message ? "block" : "none";
+  // ---- Filter element refs ----------------------------------
+  const filterSearch = document.getElementById("filterSearch");
+  const filterType   = document.getElementById("filterType");
+  const filterStart  = document.getElementById("filterStart");
+  const filterEnd    = document.getElementById("filterEnd");
+  const clearBtn     = document.getElementById("clearFilters");
 
-      if (message) {
-      setTimeout(() => {
-        errorBox.style.display = "none";
-      }, 3000);
-    }
-    } else if (message) {
-      alert(message);
-    }
-  }
+  // ---- State ------------------------------------------------
+  let currentPage     = 1;
+  let pendingDeleteId = null;
+  let searchTimer     = null;
+  let allCategories   = [];
+  const PAGE_LIMIT    = 10;
+  const filters       = { search: "", type: "", startDate: "", endDate: "" };
 
-  function showSuccess(message) {
-    if (successBox) {
-      successBox.textContent = message;
-      successBox.style.display = message ? "block" : "none";
-
-      if (message) {
-      setTimeout(() => {
-        successBox.style.display = "none";
-      }, 3000);
-    }
-    } else if (message) {
-      alert(message);
-    }
-  }
-
-  // === 🔄 INITIAL DATA LOAD =====================================
-  // Loads profile, summary, and transactions at once
-  async function loadDashboardData() {
+  // ---- Categories -------------------------------------------
+  async function loadCategories() {
     try {
-      // 1️⃣ Load profile (for welcome text)
+      const res = await fetch("/api/categories", { headers });
+      if (!res.ok) return;
+      allCategories = await res.json();
+      populateCategorySelect(categorySelect, typeInput.value);
+    } catch (e) {
+      console.error("Failed to load categories:", e);
+    }
+  }
+
+  function populateCategorySelect(selectEl, type, currentValue = "") {
+    const filtered = allCategories.filter(
+      (c) => c.type === "both" || c.type === type
+    );
+
+    selectEl.innerHTML = "";
+
+    if (!filtered.length) {
+      const opt = document.createElement("option");
+      opt.value = "";
+      opt.textContent = "No categories — add some in Categories";
+      opt.disabled = true;
+      opt.selected = true;
+      selectEl.appendChild(opt);
+      return;
+    }
+
+    const placeholder = document.createElement("option");
+    placeholder.value = "";
+    placeholder.textContent = "Select category";
+    placeholder.disabled = true;
+    placeholder.selected = !currentValue;
+    selectEl.appendChild(placeholder);
+
+    filtered.forEach((cat) => {
+      const opt = document.createElement("option");
+      opt.value = cat.name;
+      opt.textContent = `${cat.icon} ${cat.name}`;
+      if (cat.name === currentValue) opt.selected = true;
+      selectEl.appendChild(opt);
+    });
+
+    // If the current value isn't in the filtered list (old data), add it anyway
+    if (currentValue && !filtered.find((c) => c.name === currentValue)) {
+      const opt = document.createElement("option");
+      opt.value = currentValue;
+      opt.textContent = currentValue;
+      opt.selected = true;
+      selectEl.appendChild(opt);
+    }
+  }
+
+  // Re-filter categories when type changes in the add form
+  typeInput.addEventListener("change", () => {
+    populateCategorySelect(categorySelect, typeInput.value);
+  });
+
+  // ---- Initial load -----------------------------------------
+  async function init() {
+    try {
       const profileRes = await fetch("/api/users/profile", { headers });
       if (!profileRes.ok) throw new Error("Failed to fetch profile");
       const profile = await profileRes.json();
       welcomeText.textContent = `Welcome, ${profile.name}`;
-
-      // 2️⃣ Load summary (for cards)
-      await updateSummary();
-
-      // 3️⃣ Load transactions (for table)
-      const transactionsRes = await fetch("/api/transactions", { headers });
-      if (!transactionsRes.ok) throw new Error("Failed to fetch transactions");
-      const transactions = await transactionsRes.json();
-
-      renderTransactions(transactions);
+      await Promise.all([updateSummary(), loadCategories(), loadTransactions(1)]);
     } catch (error) {
-      console.error("Dashboard load error:", error);
-      showError("Failed to load dashboard data.");
+      console.error("Init error:", error);
+      showToast("Failed to load page data.", "error");
     }
   }
 
-  // === 🧾 RENDER TRANSACTIONS TABLE ==============================
+  // ---- Skeleton loader --------------------------------------
+  function showSkeleton() {
+    transactionsTable.innerHTML = Array(5).fill(`
+      <tr>
+        <td><div class="skeleton" style="height:14px;width:70px;border-radius:4px"></div></td>
+        <td><div class="skeleton" style="height:14px;width:80px;border-radius:4px"></div></td>
+        <td><div class="skeleton" style="height:14px;width:55px;border-radius:4px"></div></td>
+        <td><div class="skeleton" style="height:14px;width:90px;border-radius:4px"></div></td>
+        <td><div class="skeleton" style="height:14px;width:50px;border-radius:4px"></div></td>
+      </tr>
+    `).join("");
+  }
+
+  // ---- Load transactions ------------------------------------
+  async function loadTransactions(page) {
+    currentPage = page;
+    showSkeleton();
+
+    const params = new URLSearchParams({ page, limit: PAGE_LIMIT });
+    if (filters.type)      params.set("type",      filters.type);
+    if (filters.search)    params.set("search",    filters.search);
+    if (filters.startDate) params.set("startDate", filters.startDate);
+    if (filters.endDate)   params.set("endDate",   filters.endDate);
+
+    try {
+      const res = await fetch(`/api/transactions?${params}`, { headers });
+      if (!res.ok) throw new Error("Failed to fetch transactions");
+      const { transactions, pagination } = await res.json();
+      renderTransactions(transactions);
+      renderPagination(pagination);
+    } catch (error) {
+      console.error("Transactions load error:", error);
+      showToast("Failed to load transactions.", "error");
+      transactionsTable.innerHTML = '<tr><td colspan="5" class="text-center text-gray-400 py-10">Failed to load.</td></tr>';
+    }
+  }
+
+  // ---- Render transactions ----------------------------------
   function renderTransactions(transactions) {
     transactionsTable.innerHTML = "";
 
     if (!transactions.length) {
-      transactionsTable.innerHTML =
-        '<tr><td colspan="5">No transactions found</td></tr>';
+      transactionsTable.innerHTML = `
+        <tr><td colspan="5">
+          <div class="empty-state">
+            <span>📭</span>
+            <p>No transactions found</p>
+            <small>Try adjusting your filters or add a new transaction</small>
+          </div>
+        </td></tr>`;
       return;
     }
 
-    transactions.forEach((transaction) => {
-      const tr = document.createElement("tr");
-      const date = new Date(transaction.date).toLocaleDateString();
-      const type =
-        transaction.type.charAt(0).toUpperCase() +
-        transaction.type.slice(1).toLowerCase();
-      const tooltip = transaction.description
-        ? transaction.description.replace(/"/g, "'")
-        : "No description";
+    transactions.forEach((t) => {
+      const tr      = document.createElement("tr");
+      const date    = new Date(t.date).toLocaleDateString();
+      const type    = t.type.charAt(0).toUpperCase() + t.type.slice(1);
+      const tooltip = t.description || "No description";
 
       tr.innerHTML = `
         <td title="${tooltip}">${date}</td>
-        <td title="${tooltip}">₦${transaction.amount.toLocaleString()}</td>
+        <td title="${tooltip}" style="font-weight:600;color:${t.type === "income" ? "#16a34a" : "#dc2626"}">${fmt(t.amount)}</td>
         <td title="${tooltip}">${type}</td>
-        <td title="${tooltip}">${transaction.category}</td>
+        <td title="${tooltip}">${t.category}</td>
         <td title="${tooltip}">
-          <button class="edit" data-id="${transaction._id}">✏️</button>
-          <button class="delete" data-id="${transaction._id}">🗑</button>
-        </td>
-      `;
-
+          <button class="edit"   data-id="${t._id}">✏️</button>
+          <button class="delete" data-id="${t._id}">🗑️</button>
+        </td>`;
       transactionsTable.appendChild(tr);
     });
   }
 
-  // === ➕ ADD NEW TRANSACTION (NO RELOAD) ========================
+  // ---- Render pagination ------------------------------------
+  function renderPagination({ page, totalPages, hasNextPage, hasPrevPage }) {
+    const pageInfo = document.getElementById("pageInfo");
+    const prevBtn  = document.getElementById("prevPage");
+    const nextBtn  = document.getElementById("nextPage");
+    if (!pageInfo) return;
+    pageInfo.textContent  = `Page ${page} of ${totalPages || 1}`;
+    prevBtn.disabled = !hasPrevPage;
+    nextBtn.disabled = !hasNextPage;
+  }
+
+  document.getElementById("prevPage")?.addEventListener("click", () => loadTransactions(currentPage - 1));
+  document.getElementById("nextPage")?.addEventListener("click", () => loadTransactions(currentPage + 1));
+
+  // ---- Filter wiring ----------------------------------------
+  filterSearch.addEventListener("input", (e) => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => {
+      filters.search = e.target.value.trim();
+      loadTransactions(1);
+    }, 400);
+  });
+
+  filterType.addEventListener("change", (e) => {
+    filters.type = e.target.value;
+    loadTransactions(1);
+  });
+
+  filterStart.addEventListener("change", (e) => {
+    filters.startDate = e.target.value;
+    loadTransactions(1);
+  });
+
+  filterEnd.addEventListener("change", (e) => {
+    filters.endDate = e.target.value;
+    loadTransactions(1);
+  });
+
+  clearBtn.addEventListener("click", () => {
+    filters.search = filters.type = filters.startDate = filters.endDate = "";
+    filterSearch.value = "";
+    filterType.value   = "";
+    filterStart.value  = "";
+    filterEnd.value    = "";
+    loadTransactions(1);
+  });
+
+  // ---- Summary cards ----------------------------------------
+  async function updateSummary() {
+    try {
+      const res = await fetch("/api/transactions/summary", { headers });
+      if (!res.ok) return;
+      const summary = await res.json();
+      const cards   = document.querySelectorAll(".card p");
+      if (cards.length >= 3) {
+        cards[0].textContent = fmt(summary.balance);
+        cards[1].textContent = fmt(summary.income);
+        cards[2].textContent = fmt(summary.expenses);
+      }
+    } catch (e) {
+      console.error("Summary update error:", e);
+    }
+  }
+
+  // ---- Add transaction --------------------------------------
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
-
-    const amount = amountInput.value.trim();
-    const type = typeInput.value.trim();
-    const category = categoryInput.value.trim();
+    const amount      = amountInput.value.trim();
+    const type        = typeInput.value.trim();
+    const category    = categorySelect.value.trim();
     const description = descriptionInput.value.trim();
-    const date = Date.now();
 
     if (!amount || !type || !category) {
-      return showError("Amount, Type, and Category are required fields.");
+      return showToast("Amount, Type, and Category are required.", "error");
     }
 
     submitBtn.disabled = true;
-    showError("");
-
     try {
-      // Send new transaction to the backend
-      const res = await fetch("/api/transactions", {
+      const res  = await fetch("/api/transactions", {
         method: "POST",
         headers,
-        body: JSON.stringify({ amount, type, category, description, date }),
+        body: JSON.stringify({ amount, type, category, description, date: Date.now() }),
       });
-
       const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.message || "Error adding transaction.");
-      }
-
-      showSuccess("Transaction added successfully!");
-
-      // Immediately show it in the table (prepend to top)
-      const newRow = document.createElement("tr");
-      const formattedDate = new Date(date).toLocaleDateString();
-      const typeLabel =
-        type.charAt(0).toUpperCase() + type.slice(1).toLowerCase();
-      const tooltip = description || "No description";
-
-      newRow.innerHTML = `
-        <td title="${tooltip}">${formattedDate}</td>
-        <td title="${tooltip}">₦${Number(amount).toLocaleString()}</td>
-        <td title="${tooltip}">${typeLabel}</td>
-        <td title="${tooltip}">${category}</td>
-        <td title="${tooltip}">
-          <button class="edit" data-id="${data._id}">✏️</button>
-          <button class="delete" data-id="${data._id}">🗑</button>
-        </td>
-      `;
-
-      transactionsTable.prepend(newRow);
-
-      // Reset form fields
+      if (!res.ok) throw new Error(data.message || "Error adding transaction.");
+      showToast("Transaction added!", "success");
       form.reset();
-
-      // Update summary cards after addition
+      populateCategorySelect(categorySelect, typeInput.value);
+      await loadTransactions(1);
       updateSummary();
     } catch (error) {
-      console.error("Transaction add error:", error);
-      showError(error.message || "Failed to add transaction.");
+      showToast(error.message || "Failed to add transaction.", "error");
     } finally {
       submitBtn.disabled = false;
     }
   });
 
-  // === 📊 UPDATE SUMMARY CARDS ==================================
-  async function updateSummary() {
-    try {
-      const res = await fetch("/api/transactions/summary", { headers });
-      if (!res.ok) return;
+  // ---- Delete modal -----------------------------------------
+  const deleteModal  = document.getElementById("deleteModal");
+  const cancelDelete = document.getElementById("cancelDelete");
+  const confirmDelete = document.getElementById("confirmDelete");
 
-      const summary = await res.json();
-      const cards = document.querySelectorAll(".card p");
-
-      if (cards.length >= 3) {
-        cards[0].textContent = `₦${summary.balance.toLocaleString()}`;
-        cards[1].textContent = `₦${summary.income.toLocaleString()}`;
-        cards[2].textContent = `₦${summary.expenses.toLocaleString()}`;
-      }
-    } catch (e) {
-      console.error("Failed to update summary:", e);
-    }
+  function closeDeleteModal() {
+    deleteModal.style.display = "none";
+    pendingDeleteId = null;
   }
 
-  // === ❌ DELETE TRANSACTION =====================================
-  transactionsTable.addEventListener("click", async (e) => {
-    if (!e.target.classList.contains("delete")) return;
+  cancelDelete.addEventListener("click", closeDeleteModal);
+  window.addEventListener("click", (e) => { if (e.target === deleteModal) closeDeleteModal(); });
 
-    const id = e.target.dataset.id;
-    if (!id) return showError("No ID found for this transaction");
-
-    const confirmDelete = confirm(
-      "Are you sure you want to delete this transaction?"
-    );
-    if (!confirmDelete) return;
-
+  confirmDelete.addEventListener("click", async () => {
+    if (!pendingDeleteId) return;
+    const id = pendingDeleteId;
+    closeDeleteModal();
     try {
-      const res = await fetch(`/api/transactions/${id}`, {
-        method: "DELETE",
-        headers,
-      });
-
+      const res = await fetch(`/api/transactions/${id}`, { method: "DELETE", headers });
       if (res.ok) {
-        e.target.closest("tr").remove();
-        showSuccess("Transaction deleted successfully!");
+        showToast("Transaction deleted.", "success");
+        await loadTransactions(currentPage);
         updateSummary();
       } else {
-        showError("Failed to delete transaction.");
+        showToast("Failed to delete transaction.", "error");
       }
     } catch (err) {
-      console.error("Delete error:", err);
-      showError("Error deleting transaction.");
+      showToast("Error deleting transaction.", "error");
     }
   });
 
-  // === ✏️ UPDATE TRANSACTION (MODAL) =============================
-  const modal = document.getElementById("editModal");
-  const closeBtn = document.querySelector(".close");
-  const editForm = document.getElementById("editForm");
+  transactionsTable.addEventListener("click", (e) => {
+    if (e.target.classList.contains("delete")) {
+      pendingDeleteId = e.target.dataset.id;
+      deleteModal.style.display = "flex";
+    }
+  });
 
-  // Open modal and fill fields
+  // ---- Edit modal -------------------------------------------
+  const editModal = document.getElementById("editModal");
+  const closeBtn  = document.querySelector(".close");
+  const editForm  = document.getElementById("editForm");
+
   transactionsTable.addEventListener("click", (e) => {
     if (!e.target.classList.contains("edit")) return;
-
-    const id = e.target.dataset.id;
+    const id  = e.target.dataset.id;
     const row = e.target.closest("tr");
     const [dateTd, amountTd, typeTd, categoryTd] = row.children;
 
-    editForm.elements.id.value = id;
-    editForm.elements.amount.value = amountTd.textContent
-      .replace("₦", "")
-      .replace(/,/g, "")
-      .trim();
-    editForm.elements.type.value = typeTd.textContent.toLowerCase();
-    editForm.elements.category.value = categoryTd.textContent.trim();
+    const editType     = typeTd.textContent.toLowerCase();
+    const editCategory = categoryTd.textContent.trim();
+
+    editForm.elements.id.value          = id;
+    editForm.elements.amount.value      = amountTd.textContent.replace("₦", "").replace(/,/g, "").trim();
+    editForm.elements.type.value        = editType;
     editForm.elements.description.value = "";
 
-    modal.style.display = "block";
+    populateCategorySelect(editForm.elements.category, editType, editCategory);
+
+    editModal.style.display = "flex";
   });
 
-  // Close modal logic
-  closeBtn.onclick = () => (modal.style.display = "none");
-  window.onclick = (e) => {
-    if (e.target === modal) modal.style.display = "none";
-  };
+  closeBtn.onclick = () => { editModal.style.display = "none"; };
+  window.addEventListener("click", (e) => { if (e.target === editModal) editModal.style.display = "none"; });
 
-  // Handle update form submit
+  editForm.elements.type.addEventListener("change", (e) => {
+    const currentCat = editForm.elements.category.value;
+    populateCategorySelect(editForm.elements.category, e.target.value, currentCat);
+  });
+
   editForm.addEventListener("submit", async (e) => {
     e.preventDefault();
-
-    const id = editForm.elements.id.value;
-    const amount = editForm.elements.amount.value.trim();
-    const type = editForm.elements.type.value.trim();
-    const category = editForm.elements.category.value.trim();
+    const id          = editForm.elements.id.value;
+    const amount      = editForm.elements.amount.value.trim();
+    const type        = editForm.elements.type.value.trim();
+    const category    = editForm.elements.category.value.trim();
     const description = editForm.elements.description.value.trim();
 
     try {
@@ -283,39 +357,28 @@ document.addEventListener("DOMContentLoaded", async () => {
         headers,
         body: JSON.stringify({ amount, type, category, description }),
       });
-
       if (!res.ok) throw new Error("Failed to update transaction.");
-
-      showSuccess("Transaction updated successfully!");
-      modal.style.display = "none";
-      await loadDashboardData(); // reload table only (not page)
+      showToast("Transaction updated!", "success");
+      editModal.style.display = "none";
+      await loadTransactions(currentPage);
+      updateSummary();
     } catch (err) {
-      console.error("Update error:", err);
-      showError(err.message);
+      showToast(err.message, "error");
     }
   });
 
-  // === 📂 SIDEBAR NAVIGATION ====================================
-  document.getElementById("dashboard").addEventListener("click", () => {
-    window.location.href = "/api/users/dashboard";
-  });
+  // ---- Sidebar navigation ----------------------------------
+  document.getElementById("dashboard")?.addEventListener("click",     () => window.location.href = "/api/users/dashboard");
+  document.getElementById("transationBtn")?.addEventListener("click", () => window.location.href = "/api/users/transactions");
+  document.getElementById("categoriesBtn")?.addEventListener("click", () => window.location.href = "/api/users/categories");
+  document.getElementById("summaryBtn")?.addEventListener("click",    () => window.location.href = "/api/users/summary");
 
-  document.getElementById("transationBtn").addEventListener("click", () => {
-    window.location.href = "/api/users/transactions";
-  });
-
-  document.getElementById("summaryBtn").addEventListener("click", () => {
-    window.location.href = "/api/users/summary";
-  });
-
-  // === 🚪 LOGOUT ================================================
-  const logoutBtn = document.getElementById("logoutBtn");
-  logoutBtn.addEventListener("click", () => {
+  // ---- Logout ----------------------------------------------
+  document.getElementById("logoutBtn")?.addEventListener("click", () => {
     localStorage.removeItem("token");
     sessionStorage.removeItem("token");
     window.location.href = "/api/users/signin";
   });
 
-  // Finally, load the dashboard data once everything is ready
-  await loadDashboardData();
+  await init();
 });

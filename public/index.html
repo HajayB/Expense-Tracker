@@ -3,70 +3,265 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Welcome | Expense Tracker</title>
+  <title>Expense Tracker — Track What Matters</title>
+  <script>if (localStorage.getItem('theme') === 'dark') document.documentElement.classList.add('dark');</script>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/tailwind.output.css" />
+  <link rel="stylesheet" href="/css/app.css" />
+  <script defer src="/js/theme.js"></script>
   <style>
-    body {
-      font-family: "Poppins", sans-serif;
-      background: #f7f9fc;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-      margin: 0;
-    }
-
-    .container {
+    /* Landing-specific styles not worth adding to app.css */
+    .feature-card {
       background: white;
-      padding: 2rem 3rem;
-      border-radius: 12px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-      text-align: center;
-      max-width: 400px;
-      width: 100%;
+      border-radius: 1rem;
+      padding: 1.5rem;
+      border: 1px solid #f1f5f9;
+      box-shadow: 0 1px 3px rgba(0,0,0,.06);
+      transition: transform .2s, box-shadow .2s;
     }
+    .feature-card:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(0,0,0,.09); }
+    .dark .feature-card { background: #1e293b; border-color: #334155; }
 
-    h1 {
-      color: #333;
-      font-size: 1.8rem;
-      margin-bottom: 0.5rem;
-    }
-
-    p {
-      color: #666;
-      margin-bottom: 1.5rem;
-    }
-
-    .btn {
-      display: block;
-      background: #2563eb;
-      color: white;
-      text-decoration: none;
-      padding: 0.75rem;
-      border-radius: 8px;
+    .tech-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: 999px;
+      font-size: 0.8rem;
       font-weight: 500;
-      margin-bottom: 0.8rem;
-      transition: background 0.2s ease-in-out;
+      background: #f1f5f9;
+      color: #475569;
+      border: 1px solid #e2e8f0;
     }
+    .dark .tech-badge { background: #1e293b; color: #94a3b8; border-color: #334155; }
 
-    .btn:hover {
-      background: #1d4ed8;
+    .hero-gradient {
+      background: linear-gradient(135deg, #1d4ed8 0%, #7c3aed 100%);
     }
+    .section-divider { border: none; border-top: 1px solid #e2e8f0; margin: 0; }
+    .dark .section-divider { border-color: #334155; }
 
-    .btn.secondary {
-      background: #6b7280;
+    .api-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 0;
+      border-bottom: 1px solid #f1f5f9;
+      font-size: 0.83rem;
     }
-
-    .btn.secondary:hover {
-      background: #4b5563;
+    .dark .api-row { border-color: #334155; }
+    .api-row:last-child { border-bottom: none; }
+    .method {
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 4px;
+      min-width: 48px;
+      text-align: center;
     }
+    .method.GET    { background:#dcfce7; color:#166534; }
+    .method.POST   { background:#dbeafe; color:#1e40af; }
+    .method.PUT    { background:#fef9c3; color:#92400e; }
+    .method.DELETE { background:#fee2e2; color:#991b1b; }
+    .dark .method.GET    { background:#14532d; color:#86efac; }
+    .dark .method.POST   { background:#1e3a5f; color:#93c5fd; }
+    .dark .method.PUT    { background:#44330a; color:#fde68a; }
+    .dark .method.DELETE { background:#450a0a; color:#fca5a5; }
   </style>
 </head>
-<body>
-  <div class="container">
-    <h1>Welcome to Expense Tracker 💸</h1>
-    <p>Manage your income and expenses with ease.</p>
-    <a href="/api/users/signup" class="btn">Sign Up</a>
-    <a href="/api/users/signin" class="btn secondary">Log In</a>
+<body class="bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-100 font-sans">
+
+  <!-- Nav -->
+  <nav class="sticky top-0 z-50 bg-white/80 dark:bg-gray-900/80 backdrop-blur border-b border-gray-100 dark:border-gray-800">
+    <div class="max-w-5xl mx-auto px-6 h-14 flex items-center justify-between">
+      <div class="flex items-center gap-2 font-bold text-gray-800 dark:text-white">
+        <span class="text-xl">💸</span> Expense Tracker
+      </div>
+      <div class="flex items-center gap-3">
+        <button id="darkToggle" class="p-2 rounded-lg bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition text-base" title="Toggle dark mode">🌙</button>
+        <a href="/api/users/signin" class="text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition">Log In</a>
+        <a href="/api/users/signup" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-1.5 rounded-lg transition">Sign Up</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Hero -->
+  <section class="hero-gradient text-white py-20 px-6">
+    <div class="max-w-3xl mx-auto text-center">
+      <div class="text-6xl mb-6">💸</div>
+      <h1 class="text-4xl md:text-5xl font-bold mb-4 leading-tight">Track every naira.<br/>Know where it goes.</h1>
+      <p class="text-blue-100 text-lg mb-10 max-w-xl mx-auto">
+        A full-stack personal finance app built with Node.js, MongoDB, and vanilla JS.
+        Log income, track expenses, organize by category, and visualize your money with live charts.
+      </p>
+      <div class="flex gap-3 justify-center flex-wrap">
+        <a href="/api/users/signup" class="bg-white text-blue-700 font-bold px-6 py-3 rounded-xl hover:bg-blue-50 transition shadow-md text-sm">Get Started — Free</a>
+        <a href="/api/users/signin" class="bg-white/20 hover:bg-white/30 text-white font-semibold px-6 py-3 rounded-xl transition text-sm border border-white/30">Log In</a>
+      </div>
+    </div>
+  </section>
+
+  <div class="max-w-5xl mx-auto px-6">
+
+    <!-- Features -->
+    <section class="py-16">
+      <h2 class="text-2xl font-bold text-center mb-2">Everything you need</h2>
+      <p class="text-center text-gray-500 dark:text-gray-400 text-sm mb-10">A complete personal finance toolkit in one lightweight app.</p>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+
+        <div class="feature-card">
+          <div class="text-3xl mb-3">📋</div>
+          <h3 class="font-semibold mb-1">Transaction Log</h3>
+          <p class="text-sm text-gray-500 dark:text-gray-400">Add, edit, and delete income or expense entries. Paginated table with live search, type filter, and date range.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="text-3xl mb-3">🗂️</div>
+          <h3 class="font-semibold mb-1">Custom Categories</h3>
+          <p class="text-sm text-gray-500 dark:text-gray-400">Create your own categories with a name, emoji icon, and type (income / expense / both). Full CRUD management.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="text-3xl mb-3">📊</div>
+          <h3 class="font-semibold mb-1">Visual Summary</h3>
+          <p class="text-sm text-gray-500 dark:text-gray-400">Doughnut chart for category breakdown, bar chart for totals, and a 6-month trend line. Filter by date range.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="text-3xl mb-3">🏠</div>
+          <h3 class="font-semibold mb-1">Dashboard Overview</h3>
+          <p class="text-sm text-gray-500 dark:text-gray-400">At-a-glance balance, total income, and total expenses with your 4 most recent transactions.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="text-3xl mb-3">🌙</div>
+          <h3 class="font-semibold mb-1">Dark Mode</h3>
+          <p class="text-sm text-gray-500 dark:text-gray-400">Full dark mode support with flash-free initialization. Preference persists across sessions via localStorage.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="text-3xl mb-3">🔐</div>
+          <h3 class="font-semibold mb-1">Secure Auth</h3>
+          <p class="text-sm text-gray-500 dark:text-gray-400">JWT authentication with MongoDB-backed token blacklist on logout. Rate-limited auth routes and Zod input validation.</p>
+        </div>
+
+      </div>
+    </section>
+
+    <hr class="section-divider" />
+
+    <!-- Tech Stack -->
+    <section class="py-16">
+      <h2 class="text-2xl font-bold text-center mb-2">Tech Stack</h2>
+      <p class="text-center text-gray-500 dark:text-gray-400 text-sm mb-10">Built with modern, lightweight tools — no frontend framework needed.</p>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-8">
+
+        <div>
+          <h3 class="text-xs font-bold uppercase tracking-widest text-gray-400 mb-4">Backend</h3>
+          <div class="flex flex-wrap gap-2">
+            <span class="tech-badge">🟢 Node.js</span>
+            <span class="tech-badge">⚡ Express</span>
+            <span class="tech-badge">🍃 MongoDB</span>
+            <span class="tech-badge">🔗 Mongoose</span>
+            <span class="tech-badge">🔑 JWT</span>
+            <span class="tech-badge">✅ Zod</span>
+            <span class="tech-badge">🛡️ express-rate-limit</span>
+            <span class="tech-badge">♻️ nodemon</span>
+          </div>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-bold uppercase tracking-widest text-gray-400 mb-4">Frontend</h3>
+          <div class="flex flex-wrap gap-2">
+            <span class="tech-badge">🌐 Vanilla JS</span>
+            <span class="tech-badge">🎨 Tailwind CSS v3</span>
+            <span class="tech-badge">📈 Chart.js</span>
+            <span class="tech-badge">🔤 Poppins</span>
+            <span class="tech-badge">🍞 Toast Notifications</span>
+            <span class="tech-badge">💀 Skeleton Loaders</span>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <hr class="section-divider" />
+
+    <!-- API Reference -->
+    <section class="py-16">
+      <h2 class="text-2xl font-bold text-center mb-2">API Reference</h2>
+      <p class="text-center text-gray-500 dark:text-gray-400 text-sm mb-10">All endpoints require a <code class="bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded text-xs font-mono">Bearer &lt;token&gt;</code> header except auth routes.</p>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+        <!-- Auth -->
+        <div class="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-5">
+          <h3 class="font-semibold text-sm mb-3">🔐 Auth</h3>
+          <div class="api-row"><span class="method POST">POST</span><code class="font-mono text-xs">/api/users/signup</code></div>
+          <div class="api-row"><span class="method POST">POST</span><code class="font-mono text-xs">/api/users/login</code></div>
+          <div class="api-row"><span class="method POST">POST</span><code class="font-mono text-xs">/api/users/logout</code></div>
+          <div class="api-row"><span class="method GET">GET</span><code class="font-mono text-xs">/api/users/profile</code></div>
+        </div>
+
+        <!-- Transactions -->
+        <div class="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-5">
+          <h3 class="font-semibold text-sm mb-3">💳 Transactions</h3>
+          <div class="api-row"><span class="method GET">GET</span><code class="font-mono text-xs">/api/transactions</code><span class="text-gray-400 text-xs ml-auto">?type&search&startDate&endDate&page&limit</span></div>
+          <div class="api-row"><span class="method POST">POST</span><code class="font-mono text-xs">/api/transactions</code></div>
+          <div class="api-row"><span class="method PUT">PUT</span><code class="font-mono text-xs">/api/transactions/:id</code></div>
+          <div class="api-row"><span class="method DELETE">DELETE</span><code class="font-mono text-xs">/api/transactions/:id</code></div>
+          <div class="api-row"><span class="method GET">GET</span><code class="font-mono text-xs">/api/transactions/summary</code><span class="text-gray-400 text-xs ml-auto">?startDate&endDate</span></div>
+        </div>
+
+        <!-- Categories -->
+        <div class="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-5">
+          <h3 class="font-semibold text-sm mb-3">🗂️ Categories</h3>
+          <div class="api-row"><span class="method GET">GET</span><code class="font-mono text-xs">/api/categories</code></div>
+          <div class="api-row"><span class="method POST">POST</span><code class="font-mono text-xs">/api/categories</code></div>
+          <div class="api-row"><span class="method PUT">PUT</span><code class="font-mono text-xs">/api/categories/:id</code></div>
+          <div class="api-row"><span class="method DELETE">DELETE</span><code class="font-mono text-xs">/api/categories/:id</code></div>
+        </div>
+
+        <!-- Data shape -->
+        <div class="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-5">
+          <h3 class="font-semibold text-sm mb-3">📦 Summary Response Shape</h3>
+          <pre class="text-xs font-mono text-gray-500 dark:text-gray-400 leading-relaxed overflow-x-auto">{
+  balance: Number,
+  income: Number,
+  expenses: Number,
+  totalTransactions: Number,
+  expensesByCategory: { [key]: Number },
+  monthly: [
+    { label: "Jan 25", income: N, expenses: N }
+  ]
+}</pre>
+        </div>
+
+      </div>
+    </section>
+
+    <hr class="section-divider" />
+
+    <!-- CTA -->
+    <section class="py-16 text-center">
+      <div class="text-4xl mb-4">🚀</div>
+      <h2 class="text-2xl font-bold mb-3">Ready to take control?</h2>
+      <p class="text-gray-500 dark:text-gray-400 text-sm mb-8 max-w-sm mx-auto">Create a free account and start tracking your finances in under a minute.</p>
+      <div class="flex gap-3 justify-center flex-wrap">
+        <a href="/api/users/signup" class="bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-3 rounded-xl transition shadow text-sm">Create Account</a>
+        <a href="/api/users/signin" class="bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 font-semibold px-6 py-3 rounded-xl transition text-sm">Log In</a>
+      </div>
+    </section>
+
   </div>
+
+  <!-- Footer -->
+  <footer class="border-t border-gray-100 dark:border-gray-800 py-6 text-center text-xs text-gray-400 dark:text-gray-600">
+    Built with Node.js · Express · MongoDB · Tailwind CSS · Chart.js
+  </footer>
+
 </body>
 </html>

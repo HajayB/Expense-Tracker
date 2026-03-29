@@ -1,69 +1,44 @@
-// public/js/signIn.js
 document.addEventListener("DOMContentLoaded", () => {
-  const form = document.querySelector("form");
-  const emailInput = form.querySelector('input[name="email"]');
-  const passwordInput = form.querySelector('input[name="password"]');
-  const rememberMe = form.querySelector('input[name="rememberMe"]')
-  const submitBtn = form.querySelector('button[type="submit"]');
-  const errorBox = document.querySelector(".error-message"); // Optional div for errors
+  const form        = document.querySelector("form");
+  const emailInput  = form.querySelector('input[name="email"]');
+  const passInput   = form.querySelector('input[name="password"]');
+  const rememberMe  = form.querySelector('input[name="rememberMe"]');
+  const submitBtn   = form.querySelector('button[type="submit"]');
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
 
-    const email = emailInput.value.trim();
-    const password = passwordInput.value.trim();
+    const email    = emailInput.value.trim();
+    const password = passInput.value.trim();
 
     if (!email || !password) {
-      return showError("Please fill in all fields.");
+      return showToast("Please fill in all fields.", "error");
     }
 
     submitBtn.disabled = true;
-    showError(""); // Clear old errors
 
     try {
-      const response = await fetch("/api/users/login", {
+      const res  = await fetch("/api/users/login", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
       });
 
-      let data;
-      try {
-        data = await response.json();
-      } catch {
-        throw new Error("Invalid server response. Please try again.");
-      }
+      const data = await res.json();
 
-      if (!response.ok) {
-        throw new Error(data.message || "Sign in failed.");
-      }
+      if (!res.ok) throw new Error(data.message || "Sign in failed.");
 
-       // Save to localStorage or sessionStorage depending on "Remember Me"
       const storage = rememberMe.checked ? localStorage : sessionStorage;
-
       storage.setItem("token", data.token);
       storage.setItem("user", JSON.stringify(data.user));
 
-      alert("Login successful! Redirecting to dashboard...");
-      window.location.href = "/api/users/dashboard";
+      showToast("Login successful! Redirecting...", "success");
+      setTimeout(() => { window.location.href = "/api/users/dashboard"; }, 1200);
     } catch (error) {
       console.error("Login error:", error);
-      showError(error.message);
+      showToast(error.message, "error");
     } finally {
       submitBtn.disabled = false;
     }
   });
-
-  function showError(message) {
-    if (errorBox) {
-      errorBox.textContent = message;
-      errorBox.style.display = message ? "block" : "none";
-    } else if (message) {
-      alert(message);
-    }
-  }
 });
-
-

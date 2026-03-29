@@ -3,55 +3,112 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Expense Tracker Transactions</title>
-  <link rel="stylesheet" href="/css/summary.css" />
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <title>Summary | Expense Tracker</title>
+  <script>if (localStorage.getItem('theme') === 'dark') document.documentElement.classList.add('dark');</script>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/tailwind.output.css" />
+  <link rel="stylesheet" href="/css/app.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script defer src="/js/toast.js"></script>
+  <script defer src="/js/theme.js"></script>
   <script defer src="/js/summary.js"></script>
 </head>
-<body>
-  <div class="container">
+<body class="bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-100 font-sans">
+
+  <!-- Mobile hamburger -->
+  <button id="hamburger" class="md:hidden fixed top-4 left-4 z-50 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-2 rounded-lg shadow-sm">
+    <svg class="w-5 h-5 text-gray-600 dark:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+    </svg>
+  </button>
+
+  <!-- Mobile overlay -->
+  <div id="overlay" class="hidden fixed inset-0 bg-black/40 z-40 md:hidden"></div>
+
+  <div class="min-h-screen">
+
     <!-- Sidebar -->
-    <aside class="sidebar">
-        <div class="top-menu">
-            <h2 class="logo">💰</h2>
-            <ul class="menu">
-            <li id="dashboard"><i>🏠</i> Dashboard</li>
-            <li  id = "transationBtn"><i>📋</i> Transactions</li>
-            <li><i>🗂️</i> Categories</li>
-            <li id="summaryBtn" class="active"><i>📊</i> Summary</li>
-            </ul>
+    <aside id="sidebar" class="fixed top-0 left-0 h-screen w-60 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col justify-between p-4 overflow-y-auto -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out z-50">
+      <div>
+        <div class="flex items-center justify-between mb-8 mt-2">
+          <span class="text-3xl">💰</span>
+          <button id="closeSidebar" class="md:hidden text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xl leading-none">✕</button>
         </div>
-        <ul class="bottom-menu, menu">
-            <li id="logoutBtn"><i>🚪</i> Logout</li>
-        </ul>
+        <nav>
+          <ul class="space-y-1">
+            <li id="dashboard" class="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer text-gray-600 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-gray-700 text-sm transition-colors">
+              <span>🏠</span> Dashboard
+            </li>
+            <li id="transationBtn" class="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer text-gray-600 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-gray-700 text-sm transition-colors">
+              <span>📋</span> Transactions
+            </li>
+            <li id="categoriesBtn" class="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer text-gray-600 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-gray-700 text-sm transition-colors">
+              <span>🗂️</span> Categories
+            </li>
+            <li id="summaryBtn" class="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer bg-blue-600 text-white font-semibold text-sm">
+              <span>📊</span> Summary
+            </li>
+          </ul>
+        </nav>
+      </div>
+      <ul>
+        <li id="logoutBtn" class="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer text-gray-500 dark:text-gray-400 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 dark:hover:text-red-400 text-sm transition-colors">
+          <span>🚪</span> Logout
+        </li>
+      </ul>
     </aside>
 
- <main class="main">
-      <h1 id="welcome_text"></h1>
+    <!-- Main Content -->
+    <main class="md:ml-60 p-4 md:p-8 pt-16 md:pt-8 fade-in">
 
-     <!-- 🔹 Charts section -->
-      <section class="charts-container">
-        <canvas id="incomeExpenseChart"></canvas>
-        <canvas id="expenseChart"></canvas>
-      </section>
-      <!--Cards section-->
-            <section class="stats">
-        <div class="card">
-          <h3>Total Balance</h3>
-          <p>₦0</p>
-        </div>
-        <div class="card">
-          <h3>Income</h3>
-          <p>₦0</p>
-        </div>
-        <div class="card">
-          <h3>Expense</h3>
-          <p>₦0</p>
-        </div>
-      </section>
+      <!-- Top bar -->
+      <div class="flex items-center justify-between mb-8 ml-8 md:ml-0">
+        <h1 id="welcome_text" class="text-xl font-bold truncate"></h1>
+        <button id="darkToggle" class="ml-4 p-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition text-lg flex-shrink-0" title="Toggle dark mode">🌙</button>
+      </div>
 
+      <!-- Date range bar -->
+      <div class="date-range-bar mb-6">
+        <label class="text-sm font-medium text-gray-600 dark:text-gray-400">From</label>
+        <input type="date" id="summaryStart" />
+        <label class="text-sm font-medium text-gray-600 dark:text-gray-400">To</label>
+        <input type="date" id="summaryEnd" />
+        <button id="clearDateRange" class="btn-clear-filters">Clear</button>
+      </div>
 
-</main>
-</div>
+      <!-- Top charts -->
+      <div class="charts-container flex flex-col md:flex-row gap-5 mb-5">
+        <div class="chart-wrapper">
+          <canvas id="incomeExpenseChart"></canvas>
+        </div>
+        <div class="chart-wrapper">
+          <canvas id="expenseChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Monthly trend chart -->
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-5 mb-8">
+        <canvas id="monthlyChart" style="max-height:260px"></canvas>
+      </div>
+
+      <!-- Stats cards -->
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 stats">
+        <div class="card bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-100 dark:border-gray-700 shadow-sm hover:-translate-y-1 hover:shadow-md transition-all duration-200">
+          <h3 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Total Balance</h3>
+          <p class="text-2xl font-bold text-blue-600 dark:text-blue-400">—</p>
+        </div>
+        <div class="card bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-100 dark:border-gray-700 shadow-sm hover:-translate-y-1 hover:shadow-md transition-all duration-200">
+          <h3 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Income</h3>
+          <p class="text-2xl font-bold text-green-600 dark:text-green-400">—</p>
+        </div>
+        <div class="card bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-100 dark:border-gray-700 shadow-sm hover:-translate-y-1 hover:shadow-md transition-all duration-200">
+          <h3 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Expenses</h3>
+          <p class="text-2xl font-bold text-red-600 dark:text-red-400">—</p>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
 </body>
 </html>

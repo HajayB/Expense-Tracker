@@ -321,3 +321,38 @@ td[title]:hover::before{
   bottom:auto;
   top:-35px;
 }
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin: 16px 0 8px;
+}
+
+.pagination button {
+  padding: 6px 16px;
+  border: 1px solid #2563eb;
+  background: #fff;
+  color: #2563eb;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  transition: background 0.2s, color 0.2s;
+}
+
+.pagination button:hover:not(:disabled) {
+  background: #2563eb;
+  color: #fff;
+}
+
+.pagination button:disabled {
+  border-color: #ccc;
+  color: #aaa;
+  cursor: not-allowed;
+}
+
+.pagination span {
+  font-size: 0.875rem;
+  color: #555;
+}

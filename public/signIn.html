@@ -1,63 +1,63 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sign In</title>
-  <link rel="stylesheet" href="/css/signInStyle.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sign In | Expense Tracker</title>
+  <script>if (localStorage.getItem('theme') === 'dark') document.documentElement.classList.add('dark');</script>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/tailwind.output.css" />
+  <link rel="stylesheet" href="/css/app.css" />
+  <script defer src="/js/toast.js"></script>
+  <script defer src="/js/theme.js"></script>
   <script defer src="/js/signIn.js"></script>
 </head>
-<body>
+<body class="bg-[#2a2d3e] dark:bg-gray-950 min-h-screen flex items-center justify-center font-sans">
 
-<div class="container">
-  <nav class="nav">
-    <div class="left">
-      <a href="#">Home</a>
+  <!-- Dark mode toggle -->
+  <button id="darkToggle" class="fixed top-4 right-4 p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white text-lg transition hover:scale-110" title="Toggle dark mode">🌙</button>
+
+  <div class="bg-[#1e1f2b] dark:bg-gray-900 rounded-2xl shadow-2xl p-8 w-full max-w-md border border-white/10">
+
+    <!-- Nav -->
+    <div class="flex justify-between items-center mb-8 text-sm">
+      <a href="/" class="text-gray-400 hover:text-white transition">Home</a>
+      <a href="/api/users/signup" class="text-blue-400 hover:text-blue-300 font-medium transition">Create account →</a>
     </div>
-    <div class="right">
-      <a href="/api/users/signup">Sign Up</a>
-    </div>
-        
-  </nav>
 
+    <p class="text-gray-400 text-xs font-semibold tracking-widest uppercase mb-1">Welcome back</p>
+    <h1 class="text-2xl font-bold text-white mb-8">Sign in to your account</h1>
 
-  <div class="form-section">
+    <form id="signinForm" class="space-y-4">
+      <input
+        type="email"
+        name="email"
+        placeholder="Email address"
+        required
+        class="w-full bg-[#2d2f40] dark:bg-gray-800 text-white placeholder-gray-500 border border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-blue-500 transition"
+      />
+      <input
+        type="password"
+        name="password"
+        placeholder="Password"
+        required
+        class="w-full bg-[#2d2f40] dark:bg-gray-800 text-white placeholder-gray-500 border border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-blue-500 transition"
+      />
 
-    <div class="put_center">
-      <h4 >Welcome Back!</h4>
-    </div>
-    
-    <form id="signinForm">
-      <div>
-        <input type="email" placeholder="Email address" required name="email">
-        <input type="password" placeholder="Password" required name="password">
-      </div>
+      <label class="flex items-center gap-2 text-gray-400 text-sm cursor-pointer select-none">
+        <input type="checkbox" name="rememberMe" class="w-4 h-4 accent-blue-500" />
+        Remember me
+      </label>
 
-      <div class="RemLabel">
-        <label>
-        <input type="checkbox" name="rememberMe"  class="inputEP">
-          Remember me
-        </label>
-      </div>
+      <button
+        type="submit"
+        id="login_btn"
+        class="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold py-3 rounded-xl text-sm transition"
+      >
+        Log In
+      </button>
+    </form>
 
-
-      <div class="button-group">
-        <button type="submit" class="change-method" id="login_btn" >Log In</button>
-      </div>
-
-      <!-- <div class="divider">
-        <span>or sign in with</span>
-      </div>
-
-      <div class="social-buttons">
-        <button class="social github">GitHub</button>
-        <button class="social google">Google</button>
-        <button class="social facebook">Facebook</button>
-      </div>
-
-    </form> -->
   </div>
-</div>
-<p class="error-message" style="color: red; display: none;"></p>
 </body>
 </html>
